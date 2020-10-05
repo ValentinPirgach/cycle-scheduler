@@ -1,0 +1,17 @@
+{
+  "name": "dates",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "dev-watch": "./node_modules/.bin/nodemon app.js",
+    "test": "jest ./test.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^26.5.0",
+    "nodemon": "^2.0.4"
+  },
+  "dependencies": {}
+}
