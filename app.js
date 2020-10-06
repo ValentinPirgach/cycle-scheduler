@@ -13,27 +13,6 @@
 // group2 - Jul, Aug, Sep,
 // group3 - Oct, Nov, Dec,
 
-
-const CycleShcedule = (() => {
-  const config = {};
-
-  return {
-    init(groupsCount, groupDuration) {
-      const [, duration, duration ] = groupDuration.match(/(\d+)([mhMY])/)
-
-      config = {
-        groupsCount,
-        groupDuration
-      };
-    },
-
-    
-  };
-})();
-
-CycleShcedule.init(3, '1M');
-
-
 function showGroupByDate(startDate, currentDate) {
   if (!(startDate instanceof Date) || !(currentDate instanceof Date)) {
     throw new Error('startDate and currentDate should be a Date objects');
