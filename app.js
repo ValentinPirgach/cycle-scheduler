@@ -13,6 +13,27 @@
 // group2 - Jul, Aug, Sep,
 // group3 - Oct, Nov, Dec,
 
+
+const CycleShcedule = (() => {
+  const config = {};
+
+  return {
+    init(groupsCount, groupDuration) {
+      const [, duration, duration ] = groupDuration.match(/(\d+)([mhMY])/)
+
+      config = {
+        groupsCount,
+        groupDuration
+      };
+    },
+
+    
+  };
+})();
+
+CycleShcedule.init(3, '1M');
+
+
 function showGroupByDate(startDate, currentDate) {
   if (!(startDate instanceof Date) || !(currentDate instanceof Date)) {
     throw new Error('startDate and currentDate should be a Date objects');
@@ -22,18 +43,25 @@ function showGroupByDate(startDate, currentDate) {
     Math.abs((d2.getFullYear() - d1.getFullYear()) * 12 - d1.getMonth() + d2.getMonth());
 
   const n = monthDiff(startDate, currentDate); // months since start
+
+  let groups = {};
   
   if (n % 9 === 0 || (n-1) % 9 === 0 || (n-2) % 9 === 0) {
-    return 'Group 1';
+    console.log(n % 9 === 0, (n-1) % 9 === 0, (n-2) % 9 === 0);
+    group = { name: 'Group 1' };
   }
 
   if ((n-3) % 9 === 0 || (n-4) % 9 === 0 || (n-5) % 9 === 0) {
-    return 'Group 2'; 
+    group = { name: 'Group 2' };
   }
 
   if ((n-6) % 9 === 0 || (n-7) % 9 === 0 || (n-8) % 9 === 0) {
-    return 'Group 3'
+    group = { name: 'Group 3' };
   }
+
+  console.log(group);
+
+  return group;
 }
 
 module.exports = showGroupByDate;

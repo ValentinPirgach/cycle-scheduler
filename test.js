@@ -1,5 +1,11 @@
 const showGroupByDate = require('./app');
 
+describe.only('Test', () => {
+  test('return group', () => {
+    expect(showGroupByDate(new Date('2021.01.01'), new Date('2021.11.01'))).toEqual({ name: 'Group 1'});
+  });
+});
+
 describe('Start of year cases', () => {
   const startDate = '2021.01.01';
 
