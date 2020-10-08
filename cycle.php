@@ -1,61 +1,100 @@
 <?php
+
+class CycleGroup {
+  public $index;
+  public $next_cycle_offset;
+  private $duration;
+  private $cycle_offset;
+  private $rules = array();
+
+  function __construct($group_index, $group_duration, $cycle_offset) {
+    $this->index = $group_index;
+    $this->duration = $group_duration;
+    $this->cycle_offset = $cycle_offset;
+
+    $this->build_rules();
+  }
+
+  private function build_rules() {
+    for($durationIndex = 0; $durationIndex < $this->duration; $durationIndex++) {
+      array_push($this->rules, function ($dateOffset) use ($durationIndex) {
+        $groupOffset = $durationIndex + $this->index * $this->duration;
+        return ($dateOffset - $groupOffset) % $this->cycle_offset === 0;
+      });
+    }
+  }
+
+  public function is_current($date_offset) {
+    foreach($this->rules as $rule_index => $rule_func) {
+      if ($rule_func($date_offset)) {
+        $this->next_cycle_offset = $date_offset + $this->cycle_offset - $rule_index;
+        return true;
+      }
+    }
+
+    return false;
+  }
+}
+
 class CycleSchedule {
   private $config;
+  private $groups;
+  private $groups_count;
+  private $group_duration;
+  private $scale;
 
   function __construct($groups_count, $group_duration) {
     preg_match_all("/(\d+)([mhMY])/", $group_duration, $duration);
 
-    $this->config = (object)[
-      'groups_count' => (int)$groups_count,
-      'duration' => (int)$duration[1][0],
-      'scale' => $duration[2][0],
-    ]; 
+    $this->groups_count = (int)$groups_count;
+    $this->group_duration = (int)$duration[1][0];
+    $this->scale = $duration[2][0];
+    $this->cycle_offset = (int)$this->group_duration * $this->groups_count;
+
+    $this->groups = $this->build_groups();
+  }
+
+  public function show_group_by_date($start_date, $current_date) {
+    $date_offset = $this->get_diff($current_date, $start_date);
+
+    foreach ($this->groups as $key => $group) {
+      if ($group->is_current($date_offset)) {
+        return $group;
+      }
+    }
   }
 
   private function build_groups() {
     $groups = array();
 
-    for ($g = 0; $g < $this->config->groups_count; $g++) {
-      $condition = array();
-
-      for ($d = 0; $d < $this->config->duration; $d++) {
-        $k = (int)$this->config->duration * $this->config->groups_count;
-        $a = $d + $g * $this->config->duration;
-
-        array_push($condition, "((\$n - {$a}) % {$k} === 0)");
-      }
-      
-      array_push($groups, (object)[
-        'id' => "Group ".($g + 1),
-        'condition' => implode(" || ", $condition),
-      ]);
+    for ($group_index = 0; $group_index < $this->groups_count; $group_index++) {
+      array_push($groups, new CycleGroup($group_index, $this->group_duration, $this->cycle_offset));
     }
 
     return $groups;
   }
 
-  private function get_diff($date_start, $date_end) {
-    $interval = $date_start->diff($date_end);
+  public function get_next_cycle_date($start_date, $next_date_offset) {
+    $next_date = clone $start_date;
 
-    if ($this->config->scale == 'M') {
-      return (int)($interval->format('%y') * 12) + $interval->format('%m');
+    if ($this->scale == 'M') {
+      return $next_date->modify("first day of +$next_date_offset months");
     }
 
-    if ($this->config->scale == 'h') {
-      return (int)$interval->format('%h');
+    if ($this->scale == 'h') {
+      return $next_date->modify("+$next_date_offset hours");
     }
   }
 
-  public function show_group_by_date($start_date, $current_date) {
-    $groups = $this->build_groups();
+  private function get_diff($date_start, $date_end) {
+    $interval = $date_start->diff($date_end);
 
-    $n = $this->get_diff($current_date, $start_date);
+    if ($this->scale == 'M') {
+      return (int)($interval->format('%y') * 12) + $interval->format('%m');
+    }
 
-    foreach ($groups as $key => $group) {
-
-      if (eval("return $group->condition;")) {
-        return $group;
-      }
+    if ($this->scale == 'h') {
+      return (int)$interval->format('%h');
     }
   }
 }
@@ -73,15 +112,19 @@ $test_hours = array(
   '2020-10-06T19:30:00-04:00' => 'Group 1',
 );
 
-foreach ($test_hours as $hour => $group) {
-  $r = $schedule_hours->show_group_by_date(new DateTime('2020-10-06T16:00:00-04:00'), new DateTime($hour));
+foreach ($test_hours as $hour => $expectedGroup) {
+  $start_date = new DateTime('2020-10-06T16:00:00-04:00');
+  $group = $schedule_hours->show_group_by_date($start_date, new DateTime($hour));
+  $group_next_cycle_date = $schedule_hours->get_next_cycle_date($start_date, $group->next_cycle_offset)->format('c');
 
-  $result = $r->id === $group ? "OK" : "FAIL";
+  $gid = "Group ".($group->index + 1);
+  $result = $gid === $expectedGroup ? "<b style=\"background-color: green; color: white\">OK</b>" : "<b style=\"background-color: red; color: white\">FAIL</b>";
 
-  echo "\n$result | Value: $r->id | Expected: $group\n";
+  echo "<p>$result | Value: $gid | Expected: $expectedGroup </p>";
+  echo "<p> Date c: $hour <br/> Date e: $group_next_cycle_date </p>";
 }
 
-echo "\n\n";
+echo "<br/><hr/><br/>";
 
 $schedule_months = new CycleSchedule(3, '3M');
 
@@ -128,10 +171,14 @@ $test_dates = array(
 );
 
 
-foreach ($test_dates as $date => $group) {
-  $r = $schedule_months->show_group_by_date(new DateTime('2021-01-01'), new DateTime($date));
+foreach ($test_dates as $date => $expectedGroup) {
+  $start_date = new DateTime('2021-01-01');
+  $group = $schedule_months->show_group_by_date($start_date, new DateTime($date));
+  $group_next_cycle_date = $schedule_months->get_next_cycle_date($start_date, $group->next_cycle_offset)->format('Y-m-d');
 
-  $result = $r->id === $group ? "OK" : "FAIL";
+  $gid = "Group ".($group->index + 1);
+  $result = $gid === $expectedGroup ? "<b style=\"background-color: green; color: white\">OK</b>" : "<b style=\"background-color: red; color: white\">FAIL</b>";
 
-  echo "\n$result | Value: $r->id | Expected: $group\n";
+  echo "<p>$result | Value: $gid | Expected: $expectedGroup</p>";
+  echo "<p> Date c: $date <br/> Date e: $group_next_cycle_date </p>";
 }

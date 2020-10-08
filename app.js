@@ -23,24 +23,37 @@ function showGroupByDate(startDate, currentDate) {
 
   const n = monthDiff(startDate, currentDate); // months since start
 
-  let groups = {};
-  
-  if (n % 9 === 0 || (n-1) % 9 === 0 || (n-2) % 9 === 0) {
-    console.log(n % 9 === 0, (n-1) % 9 === 0, (n-2) % 9 === 0);
-    group = { name: 'Group 1' };
+  const groupsCount = 3;
+  const duration = 3; // Months
+
+  const groups = buildGroups(groupsCount, duration);
+  const foundGroup = groups.find(group => group.isCurrent(n)) || {};
+
+  return `Group ${foundGroup.groupIndex + 1}`;
+}
+
+class Group {
+  constructor(groupIndex, groupDuration, cycleOffset) {
+    this.groupDuration = groupDuration;
+    this.groupIndex = groupIndex;
+    this.cycleOffset = cycleOffset;
+
+    this.matchArray = Array(this.groupDuration).fill().map((item, durationIndex) => {
+      const groupOffset = durationIndex + this.groupIndex * this.groupDuration;
+      console.log(`(dateOffset - ${groupOffset}) % ${this.cycleOffset} === 0`);
+      return (dateOffset) => (dateOffset - groupOffset) % this.cycleOffset === 0;
+    })
   }
 
-  if ((n-3) % 9 === 0 || (n-4) % 9 === 0 || (n-5) % 9 === 0) {
-    group = { name: 'Group 2' };
+  isCurrent(dateOffset) {
+    return this.matchArray.some(matchFunc => matchFunc(dateOffset));
   }
+}
 
-  if ((n-6) % 9 === 0 || (n-7) % 9 === 0 || (n-8) % 9 === 0) {
-    group = { name: 'Group 3' };
-  }
+function buildGroups (count, duration) {
+  const cycleOffset = count * duration;
 
-  console.log(group);
-
-  return group;
+  return Array(count).fill().map((item, index) => new Group(index, duration, cycleOffset))
 }
 
 module.exports = showGroupByDate;
